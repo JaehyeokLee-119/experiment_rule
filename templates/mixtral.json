@@ -1,0 +1,9 @@
+{
+  "description": "Template used by Alpaca-LoRA for RULE CUT",
+  "prompt_inference": "[INST] Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n### Instruction: Your task is solving a following logical reasoning problem. Given a passage, a question and options, there is just one correct answer among the options. Write reasoning process for choosing answer and then write the number of correct answer which is surrounded by square brackets.\n\n### Passage: {context}\n### Question: {question}\n### options: {options}\n [\\INST] ",
+  "prompt_inference_onlynum": "[INST] Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n### Instruction: Your task is solving a following logical reasoning problem. Given a passage, a question and options, there is just one correct answer among the options. Write the number of correct answer.\n\n### Passage: {context}\n### Question: {question}\n### options: {options}\n [\\INST] The answer is Option ",
+  "prompt_input": "Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:\n",
+  "prompt_no_input": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Response:\n",
+  "prompt_no_input_judge": "Below is an instruction that describes a task. Write a response to the instruction and the response should match the corresponding judgment.\n\n### Instruction:\n{instruction}\n\n### Judgment:\n{judgment}\n\n### Response:\n",
+  "response_split": "### Response:"
+}
