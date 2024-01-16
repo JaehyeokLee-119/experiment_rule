@@ -115,8 +115,6 @@ def inference(
         
     inferenced = []
     for ix, x in tqdm(enumerate(data_loader), total=len(data_loader)):  
-        # TODO: 데이터 분배 구현하기
-        # 이건 전처리 할때 쓰는 방식이고, inference 할 때는 다른 방식을 써야 할 것 같다
         context = x["context"] # str
         question = x["question"]
         answers = x["answers"] # List 
@@ -154,7 +152,6 @@ def inference(
     
     # save
     if ddp and world_size > 1: # ddp 사용 시 (프로세스마다 결과를 나눠서 저장하고, 마지막에 모아서 저장)
-
         output_filepath = os.path.join(output_path, f'{output_key}_{local_rank}.jsonl')
         with open(output_filepath, "w") as f:
             for x in inferenced:
