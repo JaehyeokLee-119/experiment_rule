@@ -7,9 +7,11 @@ jsonl 데이터를 불러오는 dataloader
 from datasets import load_dataset
 from typing import List
 
-def answers_to_string(answers: List[str]) -> str:
+def answers_to_string(answers: List) -> str:
     answer_str = ""
     for a, answer in enumerate(answers):
+        while type(answer) == tuple:
+            answer = answer[0]
         if a == len(answers) - 1:
             answer_str += f"{a+1}: {answer}"
         else:
@@ -30,7 +32,10 @@ def dataload_jsonl_reclor(data_path: str, portion: str = "100%"):
 
 def extract_response_from_output(output_string: str):
     # string에서 등장하는 마지막 '### Response:' 이후의 string을 반환
-    key = '[\INST]' # '### Response:'
+    if '[\INST]' in output_string:
+        key = '[\INST]'
+    elif '### Response:' in output_string:
+        key = '### Response:'
     # output_string = output_string[output_string.rfind('### Response: ')+len('### Response: '):]
     output_string = output_string[output_string.rfind(key)+len(key):]
     if '</s>' in output_string: # 없애기

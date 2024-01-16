@@ -114,7 +114,8 @@ def inference(
         data_loader = DataLoader(data, batch_size=1, shuffle=False)
         
     inferenced = []
-    for ix, x in tqdm(enumerate(data_loader), total=len(data_loader)):  
+    # 표시할 때 local_rank를 앞에 붙여서 표시
+    for ix, x in tqdm(enumerate(data_loader), total=len(data_loader), desc=f'Process {local_rank}'):
         context = x["context"] # str
         question = x["question"]
         answers = x["answers"] # List 
