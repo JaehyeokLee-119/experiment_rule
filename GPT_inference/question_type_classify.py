@@ -64,32 +64,85 @@ def template_to_string(template: str, context: str, question: str, options: List
     option_str = answers_to_string(options)
     return template.format(context=context, question=question, options=option_str)
 
-
 class GPT_run:
     def __init__(self, model_name, file_name, outputfile_name):
         self.model_name = model_name
         self.client = OpenAI(api_key=API_KEY)
         self.template = TEMPLATE 
         self.filename = file_name
+        self.outputfile = outputfile_name
         
+    def do_gpt(self, model_name, prompt):
+        prompt = prompt
+        PROMPT_MESSAGES = [
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ]
+        params = {
+            "model": model_name,
+            "messages": PROMPT_MESSAGES,
+            "temperature": 0,
+        }
+        response = ask_chatgpt(params, self.client)
+        return response
+    
     def run(self):
-        for ix, x in enumerate(data_loader):
+        inferenced = []
+        only_filename_of_input = os.path.basename(self.filename)
+        output_key = os.path.splitext(only_filename_of_input)[0]
+        
+        for ix, x in tqdm(enumerate(data_loader), total=len(data_loader), desc=f'Qtype of {output_key}'):
             context = x["context"][0] # str
             question = x["question"][0]
             answers = x["answers"] # List 
             answers = [x[0] for x in answers]
-            question_type = x["question_type"][0] # int
+            # question_type = x["question_type"][0].item() # int
             id_string = x["id_string"][0] # str
             
             input_string = template_to_string(self.template, context, question, answers)
+            response = self.do_gpt(self.model_name, input_string)
+            inference = {
+                "context": context,
+                "question": question,
+                "answers": answers,
+                # "question_type": question_type,
+                "id_string": id_string,
+                "input_string": input_string,
+                "response": response,
+            }
+            
+            inferenced += [inference]   
+            # inform progress (show example)
+            if ix % 30 == 0:
+                print(f'{ix}-th output:', inference,'\n','label:')#, question_type+1)
+    
+            
+        with open(self.outputfile, "w") as f:
+            for x in inferenced:
+                f.write(json.dumps(x) + "\n")
+        print(f"Saved inference result to {self.outputfile}'")
             
 
 if __name__ == '__main__':
-    file_name = '../../Data/ReClor/ReClor_test.jsonl'
-    outputfile_name = 'qtype_result/ReClor_test_result.jsonl'
+    model_name = 'gpt-4-1106-preview'
+    fname = 'RULE_mainq.jsonl'
+    file_name = '/hdd/hjl8708/workspace/Data/RULE/RULE_mainq.jsonl'
+    outputfile_name = '/hdd/hjl8708/workspace/Inference/GPT_inference/qtype_result/RULE_mainq.jsonl'
+    
     data_dataset = load_dataset("json", data_files=file_name, split="train")
     data_loader = DataLoader(data_dataset, batch_size=1, shuffle=False)
     
-    model_name = 'gpt-4-1106-preview'
+    gpt = GPT_run(model_name, file_name, outputfile_name)
+    gpt.run()
+
+    fname = 'RULE_subq_all.jsonl'
+    file_name = '/hdd/hjl8708/workspace/Data/RULE/RULE_subq_all.jsonl'
+    outputfile_name = '/hdd/hjl8708/workspace/Inference/GPT_inference/qtype_result/RULE_subq_all.jsonl'
+    
+    data_dataset = load_dataset("json", data_files=file_name, split="train")
+    data_loader = DataLoader(data_dataset, batch_size=1, shuffle=False)
+    
     gpt = GPT_run(model_name, file_name, outputfile_name)
     gpt.run()
