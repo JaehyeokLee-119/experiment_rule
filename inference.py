@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import DataLoader, DistributedSampler
 import json
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from Scripts.data_load import dataload_jsonl_reclor, template_to_string, extract_response_from_output
+from Scripts.data_load import dataload_jsonl_reclor, template_to_string, extract_response_from_output, template_to_string_with_mainq
 from peft import (
     LoraConfig,
     prepare_model_for_int8_training,
@@ -48,7 +48,7 @@ def load_model_and_tokenizer(
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             cache_dir='/hdd/hjl8708/saved_models', 
-            load_in_half_precision=True,
+            torch_dtype=torch.float16,
             use_flash_attention_2=flash_attention,
             device_map=device_map)
     else:
@@ -64,13 +64,15 @@ def load_model_and_tokenizer(
 def inference(
     model_name: str = "mistralai/Mixtral-8x7B-Instruct-v0.1",
     template_path: str = "/hdd/hjl8708/workspace/Inference/templates/mixtral.json",
-    template_key: str = "prompt_inference_onlynum",
+    template_key: str = "prompt_inference_with_mainq_onlynum",
     peft_model_path: str = "",
     data_path: str = "/hdd/hjl8708/workspace/Data/RULE/RULE_subq_all.jsonl",
     output_path: str = "/hdd/hjl8708/workspace/Inference/Result",
-    output_key: str = "RULE_subq_Mixtral_4bit",
-    reduce_memory: str = "4-bit", # "None", half-precision, "4-bit", "8-bit"
+    output_key: str = "RULE_subq_Mixtral_8bit",
+    reduce_memory: str = "8-bit", # "None", half-precision, "4-bit", "8-bit"
     flash_attention: bool = False,
+    including_target_q: bool = True,
+    max_new_tokens: int = 1500,
 ):
     world_size = int(os.environ.get("WORLD_SIZE", 1)) # ddp 프로세스 개수
     local_rank = int(os.environ.get("LOCAL_RANK", 0)) # ddp 사용 시 현재 프로세스 번호
@@ -116,12 +118,11 @@ def inference(
     inferenced = []
     # 표시할 때 local_rank를 앞에 붙여서 표시
     for ix, x in tqdm(enumerate(data_loader), total=len(data_loader), desc=f'Process {local_rank}'):
-        context = x["context"] # str
-        question = x["question"]
+        context = x["context"][0] # str
+        question = x["question"][0]
         answers = x["answers"] # List 
-        label = x["label"] # int
-        id_string = x["id_string"] # str
-        
+        label = x["label"].item() # int
+        id_string = x["id_string"][0] # str
         # x에 'main_option_correctness' 키가 있는 경우
         if 'main_option_correctness' in x:
             main_option_correctness = x['main_option_correctness'].item()
@@ -129,19 +130,29 @@ def inference(
             main_option_correctness = None
             
         # inference
-        input_string = template_to_string(template, context, question, answers)
+        if including_target_q:
+            main_question = x['main_question']
+            mainq_question = main_question['question'][0]
+            mainq_answers = main_question['answers']
+            mainq_label = main_question['label'].item()
+            
+            input_string = template_to_string_with_mainq(template, context, question, answers, 
+                                                         mainq_question, mainq_answers, mainq_label)
+        else:
+            input_string = template_to_string(template, context, question, answers)
+            
         input_ids = tokenizer(input_string, return_tensors="pt").to('cuda')
-        output_ids = model.generate(**input_ids, max_new_tokens=3, num_beams=1, do_sample=False, repetition_penalty=1.0, length_penalty=1.0, no_repeat_ngram_size=4, pad_token_id=tokenizer.pad_token_id)
+        output_ids = model.generate(**input_ids, max_new_tokens=max_new_tokens, num_beams=1, do_sample=False, repetition_penalty=1.0, length_penalty=1.0, no_repeat_ngram_size=4, pad_token_id=tokenizer.pad_token_id)
         output_string = tokenizer.decode(output_ids[0])
         inference = extract_response_from_output(output_string).strip()
         
         answers = [x[0] for x in answers]
         inferenced.append({
-            "context": context[0],
-            "question": question[0],
+            "context": context,
+            "question": question,
             "answers": answers,
-            "label": int(label),
-            "id_string": id_string[0],
+            "label": label,
+            "id_string": id_string,
             "input_string": input_string,
             "inference": inference,
             "main_option_correctness": main_option_correctness,
